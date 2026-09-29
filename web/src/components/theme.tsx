@@ -1,5 +1,5 @@
 import { Menu as BaseMenu } from '@base-ui/react/menu'
-import { Grid3x3, LayoutGrid, Monitor, Moon, Palette, Sun } from 'lucide-react'
+import { Grid3x3, LayoutGrid, List, Monitor, Moon, Palette, Sun } from 'lucide-react'
 import { ThemeProvider as NextThemesProvider, useTheme } from 'next-themes'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
@@ -40,10 +40,11 @@ const ICONS: Record<Mode, typeof Monitor> = {
   light: Sun,
 }
 
-/** 视图选项的图标：磁贴看成一张张卡片，应用图标看成主屏九宫格。 */
+/** 视图选项的图标：应用图标、卡片、紧凑列表。 */
 const VIEW_ICONS: Record<ViewMode, typeof LayoutGrid> = {
   tile: LayoutGrid,
   app: Grid3x3,
+  list: List,
 }
 
 /** 两行选项共用同一套外观。 */
@@ -63,14 +64,14 @@ const GROUP_LABEL_CLASS = 'pl-1 text-xs text-[var(--color-muted-foreground)]'
 
 export interface ThemeToggleProps {
   className?: string
-  /** 当前视图模式（磁贴 / 应用图标），与主题同在一个菜单里切换。 */
+  /** 当前视图模式，与主题同在一个菜单里切换。 */
   view: ViewMode
   onViewChange: (mode: ViewMode) => void
 }
 
 /**
  * 外观菜单：点击调色板图标弹出两行选项——「主题」跟随系统 / 深色 / 浅色，
- * 「视图」磁贴 / 应用图标（原来单独占一个工具栏按钮，现在收进这个菜单）。
+ * 「视图」应用图标 / 卡片 / 紧凑列表。
  */
 export function ThemeToggle({ className, view, onViewChange }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme()

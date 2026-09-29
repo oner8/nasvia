@@ -20,7 +20,7 @@ export interface ViewModeState {
 }
 
 /**
- * 视图模式（磁贴 / 应用）：初始值直接读 localStorage（纯 CSR，首帧即为用户选择，不会闪一下），
+ * 视图模式（应用图标 / 卡片 / 紧凑列表）：初始值直接读 localStorage（纯 CSR，首帧即为用户选择，不会闪一下），
  * 变更后写回；写入失败只影响「下次记住」，不影响当前页面。
  */
 export function useViewMode(): ViewModeState {

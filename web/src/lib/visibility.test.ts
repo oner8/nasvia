@@ -109,3 +109,10 @@ test('分类计数按身份重算', () => {
   const authed = visibleCategories(sites, [publicCat], true)
   assert.equal(authed[0]?.site_count, 2)
 })
+
+test('没有可见站点的分类不进入首页导航', () => {
+  assert.deepEqual(visibleCategories([], [publicCat], false), [])
+  const privateOnly = [site({ id: 1, name: '私密站点', category_id: publicCat.id, visibility: 'private' })]
+  assert.deepEqual(visibleCategories(privateOnly, [publicCat], false), [])
+  assert.equal(visibleCategories(privateOnly, [publicCat], true)[0]?.site_count, 1)
+})

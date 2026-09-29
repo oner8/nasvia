@@ -8,6 +8,7 @@ import type {
   CategoryListResponse,
   CategoryView,
   FaviconSources,
+  IconStatusResponse,
   Site,
   SiteListResponse,
 } from './types'
@@ -133,6 +134,10 @@ export const api = {
   async adminSites(): Promise<SiteListResponse> {
     return (await http.get<SiteListResponse>('/admin/sites')).data
   },
+  async iconStatuses(ids: number[], admin = false, signal?: AbortSignal): Promise<IconStatusResponse> {
+    const path = admin ? '/admin/sites/icon-status' : '/sites/icon-status'
+    return (await http.get<IconStatusResponse>(path, { params: { ids: ids.join(',') }, signal })).data
+  },
   async createSite(payload: SitePayload): Promise<Site> {
     const res = await http.post<{ site: Site }>('/admin/sites', payload)
     return res.data.site
@@ -170,8 +175,8 @@ export const api = {
   async reorderSites(ids: number[]): Promise<void> {
     await http.post('/admin/sites/reorder', { ids })
   },
-  async refetchIcon(id: number): Promise<void> {
-    await http.post(`/admin/sites/${id}/refetch-icon`)
+  async refetchIcon(id: number): Promise<{ queued: boolean }> {
+    return (await http.post<{ queued: boolean }>(`/admin/sites/${id}/refetch-icon`)).data
   },
   async adminCategories(): Promise<CategoryListResponse> {
     return (await http.get<CategoryListResponse>('/admin/categories')).data

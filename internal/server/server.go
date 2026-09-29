@@ -126,6 +126,7 @@ func (s *Server) buildRouter() (*gin.Engine, error) {
 		api.GET("/auth/session", s.handleSession)
 
 		api.GET("/sites", s.handleListSites)
+		api.GET("/sites/icon-status", s.handleListIconStatuses)
 		api.GET("/categories", s.handleListCategories)
 		api.GET("/sites/:id/icon", s.handleSiteIcon)
 		api.GET("/suggest", s.handleSuggest)
@@ -133,6 +134,7 @@ func (s *Server) buildRouter() (*gin.Engine, error) {
 		admin := api.Group("/admin", s.requireAdmin())
 		{
 			admin.GET("/sites", s.handleAdminListSites)
+			admin.GET("/sites/icon-status", s.handleAdminListIconStatuses)
 			admin.POST("/sites", s.handleCreateSite)
 			admin.POST("/sites/batch", s.handleBatchSites)
 			admin.POST("/sites/purge", s.handlePurgeSites)
@@ -316,14 +318,29 @@ func (s *Server) readGate(c *gin.Context) bool {
 
 // ---------------------------------------------------------------- 图标抓取
 
-func (s *Server) triggerIconFetch(site model.Site) {
+type iconQueueResult uint8
+
+const (
+	iconQueued iconQueueResult = iota
+	iconAlreadyQueued
+	iconUnavailable
+)
+
+// queueIconFetch 校验、占位并启动单个抓取任务；reset 仅供手动重抓，在任务启动前清空旧图标。
+func (s *Server) queueIconFetch(site model.Site, reset bool) (iconQueueResult, error) {
 	target := iconMatchTarget(site)
 	if target == "" || !s.fetcher.Sources().Any() {
-		return
+		return iconUnavailable, nil
 	}
 	key := site.ID
 	if _, loaded := s.inFlight.LoadOrStore(key, struct{}{}); loaded {
-		return
+		return iconAlreadyQueued, nil
+	}
+	if reset {
+		if err := s.store.MarkIconPending(site.ID); err != nil {
+			s.inFlight.Delete(key)
+			return iconUnavailable, err
+		}
 	}
 	go func() {
 		defer s.inFlight.Delete(key)
@@ -353,6 +370,16 @@ func (s *Server) triggerIconFetch(site model.Site) {
 		}
 		s.applyIconResult(site, res)
 	}()
+	return iconQueued, nil
+}
+
+// triggerIconFetch 用于创建、编辑和图标缺失时的自动抓取；无法抓取时立即落回占位图，避免永久 pending。
+func (s *Server) triggerIconFetch(site model.Site) iconQueueResult {
+	result, _ := s.queueIconFetch(site, false)
+	if result == iconUnavailable {
+		s.storePlaceholderIcon(site)
+	}
+	return result
 }
 
 // applyIconResult 落盘抓到的图标：内容哈希命名 + 记录到站点 + 按域名缓存。

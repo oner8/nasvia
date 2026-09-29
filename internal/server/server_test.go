@@ -1515,6 +1515,113 @@ func TestUntrustedProxyHeadersIgnored(t *testing.T) {
 	}
 }
 
+func TestIconStatusEndpointIsLightweightAndRespectsVisibility(t *testing.T) {
+	e := newEnv(t, "test123", model.AuthModePublic)
+	publicSite := &model.Site{Name: "公开状态", URL: "https://public.example.com", Visibility: model.VisibilityPublic}
+	privateSite := &model.Site{Name: "私密状态", URL: "https://private.example.com", Visibility: model.VisibilityPrivate}
+	for _, site := range []*model.Site{publicSite, privateSite} {
+		if err := e.st.CreateSite(site); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	type statusResponse struct {
+		Items []struct {
+			ID         uint   `json:"id"`
+			Icon       string `json:"icon"`
+			IconState  string `json:"icon_state"`
+			IconSource string `json:"icon_source"`
+		} `json:"items"`
+	}
+	path := "/api/sites/icon-status?ids=" + itoa(publicSite.ID) + "," + itoa(privateSite.ID)
+	var anonymous statusResponse
+	resp := e.json(t, http.MethodGet, path, nil, &anonymous)
+	if resp.status != http.StatusOK || len(anonymous.Items) != 1 || anonymous.Items[0].ID != publicSite.ID {
+		t.Fatalf("匿名只能读取公开站点状态：%d %+v", resp.status, anonymous.Items)
+	}
+	if anonymous.Items[0].Icon == "" || anonymous.Items[0].IconState == "" || anonymous.Items[0].IconSource == "" {
+		t.Fatalf("轻量状态字段不完整：%+v", anonymous.Items[0])
+	}
+	if resp := e.json(t, http.MethodGet, "/api/sites/icon-status?ids=bad", nil, nil); resp.status != http.StatusBadRequest {
+		t.Fatalf("非法 ID 应返回 400，得到 %d", resp.status)
+	}
+	if resp := e.json(t, http.MethodGet, "/api/admin/sites/icon-status?ids="+itoa(publicSite.ID), nil, nil); resp.status != http.StatusUnauthorized {
+		t.Fatalf("后台状态接口应要求登录，得到 %d", resp.status)
+	}
+	if resp := e.login(t, "test123"); resp.status != http.StatusOK {
+		t.Fatal("登录失败")
+	}
+	var authenticated statusResponse
+	e.json(t, http.MethodGet, path, nil, &authenticated)
+	if len(authenticated.Items) != 2 {
+		t.Fatalf("登录后应能读取两个站点状态，得到 %+v", authenticated.Items)
+	}
+}
+
+func TestRefetchIconRejectsDuplicateAndUnavailableJobs(t *testing.T) {
+	release := make(chan struct{})
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		<-release
+		http.NotFound(w, nil)
+	}))
+	defer slow.Close()
+
+	e := newEnv(t, "test123", model.AuthModePublic)
+	if resp := e.login(t, "test123"); resp.status != http.StatusOK {
+		t.Fatal("登录失败")
+	}
+	site := &model.Site{Name: "慢图标", URL: slow.URL, Visibility: model.VisibilityPublic, IconState: model.IconStateReady}
+	if err := e.st.CreateSite(site); err != nil {
+		t.Fatal(err)
+	}
+	path := "/api/admin/sites/" + itoa(site.ID) + "/refetch-icon"
+	if resp := e.json(t, http.MethodPost, path, nil, nil); resp.status != http.StatusOK {
+		t.Fatalf("首次重抓应成功入队：%d %s", resp.status, resp.body)
+	}
+	var apiErr struct {
+		Code string `json:"code"`
+	}
+	resp := e.json(t, http.MethodPost, path, nil, &apiErr)
+	if resp.status != http.StatusConflict || apiErr.Code != "icon_fetch_in_progress" {
+		t.Fatalf("重复重抓应返回稳定的 409：%d %+v", resp.status, apiErr)
+	}
+	close(release)
+
+	noSources := newEnvWith(t, "test123", model.AuthModePublic, func(cfg *config.Config) {
+		cfg.FaviconSources = "none"
+	})
+	if resp := noSources.login(t, "test123"); resp.status != http.StatusOK {
+		t.Fatal("登录失败")
+	}
+	var created struct {
+		Site struct {
+			IconState string `json:"icon_state"`
+		} `json:"site"`
+	}
+	resp = noSources.json(t, http.MethodPost, "/api/admin/sites", map[string]string{
+		"name": "无图标源",
+		"url":  "https://none.example.com",
+	}, &created)
+	if resp.status != http.StatusOK || created.Site.IconState != model.IconStateFailed {
+		t.Fatalf("关闭全部来源时新站点不应停留在 pending：%d %+v", resp.status, created.Site)
+	}
+	rows, err := noSources.st.Sites()
+	if err != nil || len(rows) == 0 {
+		t.Fatal("缺少测试站点")
+	}
+	if _, err := noSources.st.UpdateSite(rows[0].ID, map[string]any{"icon_state": model.IconStateReady}); err != nil {
+		t.Fatal(err)
+	}
+	resp = noSources.json(t, http.MethodPost, "/api/admin/sites/"+itoa(rows[0].ID)+"/refetch-icon", nil, &apiErr)
+	if resp.status != http.StatusBadRequest || apiErr.Code != "icon_fetch_unavailable" {
+		t.Fatalf("关闭全部来源时应明确拒绝：%d %+v", resp.status, apiErr)
+	}
+	unchanged, err := noSources.st.Site(rows[0].ID)
+	if err != nil || unchanged.IconState == model.IconStatePending {
+		t.Fatalf("拒绝后不应留下 pending：%+v %v", unchanged, err)
+	}
+}
+
 // TestChangePassword 后台改密码（POST /api/admin/password）：弱密码拒绝，改完后旧密码失效、新密码可登录；
 // 其他设备的会话立即失效，改密码的这台设备换发新会话、保持登录。
 func TestChangePassword(t *testing.T) {

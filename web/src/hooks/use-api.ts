@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '../lib/api'
+import { ICON_POLL_MAX_MS, iconPollDelay, mergeIconStatuses } from '../lib/icon-poll'
 import type { AppConfig, CategoryListResponse, SiteListResponse } from '../lib/types'
 
 /** 公开配置（含登录态、内网网段、前台模式）。 */
@@ -13,29 +14,100 @@ export function useConfig() {
   })
 }
 
-// 站点图标是服务端异步抓取的：只要有站点还处于 pending，就轮询列表让新图标自己出现。
-// 30 秒后放弃（例如来源全被关掉时 pending 不会结束），避免一直轮询。
-let iconPollSince = 0
-export function iconPollInterval(query: { state: { data?: SiteListResponse } }): number | false {
-	const pending = (query.state.data?.items ?? []).some((site) => site.icon_state === 'pending')
-	if (!pending) {
-		iconPollSince = 0
-		return false
-	}
-	if (iconPollSince === 0) iconPollSince = Date.now()
-	if (Date.now() - iconPollSince > 30_000) return false
-	return 1500
+const ICON_STATUS_BATCH_SIZE = 100
+
+function useIconStatusPolling(items: SiteListResponse['items'], admin: boolean, enabled: boolean) {
+  const queryClient = useQueryClient()
+  const startedAt = useRef(0)
+  const failures = useRef(0)
+  const retryNow = useRef(false)
+  const [timedOut, setTimedOut] = useState(false)
+  const [retryVersion, setRetryVersion] = useState(0)
+  const pendingIDs = items.filter((site) => site.icon_state === 'pending').map((site) => site.id)
+  const pendingKey = pendingIDs.join(',')
+
+  useEffect(() => {
+    if (!enabled || !pendingKey) {
+      startedAt.current = 0
+      failures.current = 0
+      setTimedOut(false)
+      return
+    }
+    if (startedAt.current === 0) startedAt.current = Date.now()
+
+    let timer = 0
+    let controller: AbortController | undefined
+    let stopped = false
+
+    const schedule = (delay?: number) => {
+      if (stopped || document.hidden) return
+      const elapsed = Date.now() - startedAt.current
+      if (elapsed >= ICON_POLL_MAX_MS) {
+        setTimedOut(true)
+        return
+      }
+      timer = window.setTimeout(poll, delay ?? iconPollDelay(elapsed, failures.current))
+    }
+
+    const poll = async () => {
+      controller = new AbortController()
+      try {
+        const results = await Promise.all(
+          Array.from({ length: Math.ceil(pendingIDs.length / ICON_STATUS_BATCH_SIZE) }, (_, index) =>
+            api.iconStatuses(
+              pendingIDs.slice(index * ICON_STATUS_BATCH_SIZE, (index + 1) * ICON_STATUS_BATCH_SIZE),
+              admin,
+              controller?.signal,
+            ),
+          ),
+        )
+        failures.current = 0
+        const queryKey = admin ? ['admin', 'sites'] : ['sites']
+        queryClient.setQueryData<SiteListResponse>(queryKey, (current) =>
+          mergeIconStatuses(current, results.flatMap((result) => result.items)),
+        )
+      } catch (error) {
+        if (!controller.signal.aborted) failures.current += 1
+      }
+      schedule()
+    }
+
+    const onVisibility = () => {
+      window.clearTimeout(timer)
+      if (!document.hidden) schedule(0)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    const immediate = retryNow.current
+    retryNow.current = false
+    schedule(immediate ? 0 : undefined)
+    return () => {
+      stopped = true
+      window.clearTimeout(timer)
+      controller?.abort()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [admin, enabled, pendingKey, queryClient, retryVersion])
+
+  const retryIconPolling = useCallback(() => {
+    startedAt.current = Date.now()
+    failures.current = 0
+    retryNow.current = true
+    setTimedOut(false)
+    setRetryVersion((value) => value + 1)
+  }, [])
+
+  return { iconPollingTimedOut: timedOut, retryIconPolling }
 }
 
 /** 站点列表；private 模式未登录时后端返回 401，此时不重试。 */
 export function useSites(enabled = true) {
-  return useQuery<SiteListResponse>({
+  const query = useQuery<SiteListResponse>({
     queryKey: ['sites'],
     queryFn: () => api.sites(),
     enabled,
-    refetchInterval: iconPollInterval,
     retry: false,
   })
+  return { ...query, ...useIconStatusPolling(query.data?.items ?? [], false, enabled) }
 }
 
 export function useCategories(enabled = true) {
@@ -48,12 +120,12 @@ export function useCategories(enabled = true) {
 }
 
 export function useAdminSites(enabled = true) {
-  return useQuery<SiteListResponse>({
+  const query = useQuery<SiteListResponse>({
     queryKey: ['admin', 'sites'],
     queryFn: () => api.adminSites(),
     enabled,
-    refetchInterval: iconPollInterval,
   })
+  return { ...query, ...useIconStatusPolling(query.data?.items ?? [], true, enabled) }
 }
 
 export function useAdminCategories(enabled = true) {

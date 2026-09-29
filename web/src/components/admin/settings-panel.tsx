@@ -61,6 +61,7 @@ export function SettingsPanel() {
   const [navVisible, setNavVisible] = useState<NavVisible>('show')
   const [hdTest, setHdTest] = useState<HDIconsTestResult | null>(null)
   const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
   const [confirmState, setConfirmState] = useState<{ title: string; description: string; action: () => void } | null>(
     null,
   )
@@ -117,6 +118,7 @@ export function SettingsPanel() {
     mutationFn: (value: string) => api.changePassword(value),
     onSuccess: async () => {
       setPassword('')
+      setPasswordConfirm('')
       await invalidate()
       toast.success('密码已更新')
     },
@@ -179,8 +181,7 @@ export function SettingsPanel() {
               placeholder={'192.168.1.0/24\n10.0.\nhome.arpa\n*.lan'}
             />
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-              支持 CIDR（192.168.1.0/24）、IP 前缀（10.0.）、精确 IP、主机名或 .lan 后缀。浏览器的访问地址、服务端看到的访客 IP
-              任一命中即优先使用站点的内网地址，否则使用外网地址；用 localhost / 127.0.0.1 访问时固定视为内网。经反代用域名访问时<strong>不要</strong>把该域名写进来（否则在外面也会判成内网），改用下面的「家庭公网出口」。
+              支持 CIDR、IP 前缀、精确 IP、主机名或后缀。浏览器地址或服务端看到的访客 IP 任一命中时使用内网地址；均未命中时使用外网地址，某一地址未填写则自动回落到另一地址。localhost / 127.0.0.1 固定视为内网。
             </p>
           </div>
           <div>
@@ -192,50 +193,44 @@ export function SettingsPanel() {
               placeholder={'nas.example.com\nauto'}
             />
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-              每行一条：家里的 DDNS 域名（推荐，每 5 分钟重新解析）、<code>auto</code>（NAS 自动探测自己的公网出口 IP）、固定公网 IP 或 CIDR。
-              反代看到的访客 IP 等于它即判为内网；反代需传递 X-Forwarded-For（Nginx Proxy Manager 默认已传）。
-              浏览器若走代理访问该域名，需让它直连。
+              经反代用同一域名访问时，不要把域名填入上方内网规则，否则在外也会判成内网。这里每行可填家庭 DDNS 域名（推荐，每 5 分钟解析）、<code>auto</code>、固定公网 IP 或 CIDR；访客 IP 命中即视为内网。反代必须传递 <code>X-Forwarded-For</code>，并在服务端配置可信代理；浏览器使用代理时应让该域名直连。
             </p>
             {settingsQuery.data?.home_egress_status ? (
               <HomeEgressStatus status={settingsQuery.data.home_egress_status} />
             ) : null}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>分类导航位置</Label>
-              <Select
-                value={navPosition}
-                onChange={(value) => setNavPosition(value as NavPosition)}
-                options={NAV_POSITION_OPTIONS}
-              />
-              <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-                导航与内容同一行、紧贴内容并垂直居中（顶部导航已取消）；手机与平板（&lt;1024px）整块隐藏，内容占满整行。
-              </p>
+          <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] p-3">
+            <p className="text-sm font-medium">分类导航</p>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div>
+                <Label>显示状态</Label>
+                <Select
+                  value={navVisible}
+                  onChange={(value) => setNavVisible(value as NavVisible)}
+                  options={NAV_VISIBLE_OPTIONS}
+                />
+              </div>
+              <div>
+                <Label>位置</Label>
+                <Select
+                  value={navPosition}
+                  onChange={(value) => setNavPosition(value as NavPosition)}
+                  options={NAV_POSITION_OPTIONS}
+                />
+              </div>
+              <div>
+                <Label>标签样式</Label>
+                <Select
+                  value={navStyle}
+                  onChange={(value) => setNavStyle(value as NavStyle)}
+                  options={NAV_STYLE_OPTIONS}
+                />
+              </div>
             </div>
-            <div>
-              <Label>分类导航标签样式</Label>
-              <Select
-                value={navStyle}
-                onChange={(value) => setNavStyle(value as NavStyle)}
-                options={NAV_STYLE_OPTIONS}
-              />
-              <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-                选「仅图标」时，悬停标签会显示「名称 · 数量」；各分类的图标可在「分类」面板里单独指定，
-                留空则按分类名自动匹配。
-              </p>
-            </div>
-            <div>
-              <Label>分类导航</Label>
-              <Select
-                value={navVisible}
-                onChange={(value) => setNavVisible(value as NavVisible)}
-                options={NAV_VISIBLE_OPTIONS}
-              />
-              <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-                选「隐藏」时前台完全不显示分类导航（所有访客一致），内容占满整行。
-              </p>
-            </div>
+            <p className="text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+              导航位于内容两侧的留白中，不占用内容宽度；窄于 1280px 时自动隐藏。仅图标模式下悬停会显示名称与数量，分类图标可在「分类」面板中设置。
+            </p>
           </div>
 
           <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] p-3">
@@ -387,7 +382,7 @@ export function SettingsPanel() {
             修改后会保存 bcrypt 散列到数据库，并优先于环境变量 <code className="font-mono">NASVIA_PASSWORD</code>。
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-2">
+        <CardContent className="flex flex-wrap items-start gap-2">
           <div className="w-64">
             <Label>新密码（至少 6 位）</Label>
             <Input
@@ -396,14 +391,41 @@ export function SettingsPanel() {
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="new-password"
             />
+            <p className="mt-1 h-4 text-xs text-[var(--color-danger)]">
+              {password.length > 0 && password.length < 6 ? '密码至少需要 6 位' : null}
+            </p>
           </div>
-          <Button
-            variant="outline"
-            disabled={passwordMutation.isPending || password.length < 6}
-            onClick={() => passwordMutation.mutate(password)}
-          >
-            更新密码
-          </Button>
+          <div className="w-64">
+            <Label>确认新密码</Label>
+            <Input
+              type="password"
+              value={passwordConfirm}
+              onChange={(event) => setPasswordConfirm(event.target.value)}
+              autoComplete="new-password"
+            />
+            <p className="mt-1 h-4 text-xs text-[var(--color-danger)]">
+              {password.length >= 6 && passwordConfirm.length === 0
+                ? '请再次输入新密码'
+                : password.length >= 6 && passwordConfirm && password !== passwordConfirm
+                  ? '两次输入的密码不一致'
+                  : null}
+            </p>
+          </div>
+          <div>
+            <Label className="invisible" aria-hidden="true">操作</Label>
+            <Button
+              variant="outline"
+              disabled={
+                passwordMutation.isPending ||
+                password.length < 6 ||
+                passwordConfirm.length === 0 ||
+                password !== passwordConfirm
+              }
+              onClick={() => passwordMutation.mutate(password)}
+            >
+              更新密码
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

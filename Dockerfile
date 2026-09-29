@@ -23,7 +23,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web-builder /build/web/dist ./web/dist
-RUN go build -trimpath -ldflags="-s -w -X github.com/oner8/nasvia/internal/config.Version=1.0.0" -o /out/nasvia ./cmd/nasvia
+RUN go build -trimpath -ldflags="-s -w -X github.com/oner8/nasvia/internal/config.Version=1.1.0" -o /out/nasvia ./cmd/nasvia
 
 # ---------- 3) 运行镜像 ----------
 FROM alpine:3.21

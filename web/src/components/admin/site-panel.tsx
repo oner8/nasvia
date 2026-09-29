@@ -20,7 +20,7 @@ import {
 import { moveInList, nextSort, SORT_LABELS, sortSites, type SiteSort, type SiteSortKey } from '../../lib/site-order'
 import { cn } from '../../lib/utils'
 
-import { api, apiErrorMessage, type SitePayload } from '../../lib/api'
+import { api, apiErrorCode, apiErrorMessage, type SitePayload } from '../../lib/api'
 import type { CategoryView, Site, Visibility } from '../../lib/types'
 import { filterSitesByKeyword } from '../../lib/site-order'
 import { useAdminCategories, useAdminSites } from '../../hooks/use-api'
@@ -108,6 +108,7 @@ export function SitePanel() {
   const categoriesQuery = useAdminCategories()
 
   const [selected, setSelected] = useState<number[]>([])
+  const [fetchingIconIDs, setFetchingIconIDs] = useState<Set<number>>(() => new Set())
   const [keyword, setKeyword] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
@@ -268,14 +269,42 @@ export function SitePanel() {
     },
   })
 
-  const refetchMutation = useMutation({
-    mutationFn: (id: number) => api.refetchIcon(id),
-    onSuccess: async () => {
-      await invalidate()
+  const markIconPending = (id: number) => {
+    for (const queryKey of [['admin', 'sites'], ['sites']] as const) {
+      queryClient.setQueryData<{ items: Site[] }>(queryKey, (current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.map((site) =>
+                site.id === id ? { ...site, icon_state: 'pending' } : site,
+              ),
+            }
+          : current,
+      )
+    }
+  }
+
+  const refetchIcon = async (id: number) => {
+    setFetchingIconIDs((current) => new Set(current).add(id))
+    try {
+      await api.refetchIcon(id)
+      markIconPending(id)
       toast.success('已重新排队抓取图标')
-    },
-    onError: (error) => toast.error('抓取失败', apiErrorMessage(error)),
-  })
+    } catch (error) {
+      if (apiErrorCode(error) === 'icon_fetch_in_progress') {
+        markIconPending(id)
+        toast.success('该站点的图标正在抓取')
+      } else {
+        toast.error('抓取失败', apiErrorMessage(error))
+      }
+    } finally {
+      setFetchingIconIDs((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+    }
+  }
 
   const purgeMutation = useMutation({
     mutationFn: () => api.purgeSites(),
@@ -467,6 +496,15 @@ export function SitePanel() {
             </p>
           ) : null}
 
+          {sitesQuery.iconPollingTimedOut ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-muted)]/50 px-3 py-2 text-xs">
+              <span>后台仍在处理图标，自动检查已暂停。</span>
+              <Button size="sm" variant="outline" onClick={sitesQuery.retryIconPolling}>
+                刷新图标状态
+              </Button>
+            </div>
+          ) : null}
+
           <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]">
             <table className="w-full min-w-[52rem] border-collapse text-sm">
               <thead className="bg-[var(--color-muted)]/60 text-left text-xs text-[var(--color-muted-foreground)]">
@@ -488,7 +526,9 @@ export function SitePanel() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((site) => (
+                {filtered.map((site) => {
+                  const fetchingIcon = fetchingIconIDs.has(site.id) || site.icon_state === 'pending'
+                  return (
                   <tr
                     key={site.id}
                     draggable={canDrag}
@@ -594,9 +634,10 @@ export function SitePanel() {
                           size="icon-sm"
                           variant="ghost"
                           title="重新抓取图标"
-                          onClick={() => refetchMutation.mutate(site.id)}
+                          disabled={fetchingIcon}
+                          onClick={() => void refetchIcon(site.id)}
                         >
-                          <RefreshCw className="size-3.5" />
+                          <RefreshCw className={cn('size-3.5', fetchingIcon && 'animate-spin')} />
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => openEdit(site)}>
                           编辑
@@ -619,7 +660,8 @@ export function SitePanel() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-3 py-10 text-center text-xs text-[var(--color-muted-foreground)]">

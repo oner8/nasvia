@@ -15,7 +15,7 @@ export interface SiteAppProps {
  *
  * 间距按 iOS 主屏比例：图标占格子宽度的 70%、圆角约 22%（squircle 观感）、名称紧贴图标下方；
  * 列数（手机 4 / 平板 5、6 / 桌面 8）与格子间距见 GRID_CLASS.app。
- * 描述不占版面，改在悬停提示里给出；图标是否套灰底与磁贴一致（由 icon_source 决定）：
+ * 描述不占版面，改在悬停提示里给出；图标是否套灰底与卡片一致（由 icon_source 决定）：
  * favicon 需要衬托底色，HD-Icons / nasicon / 内置占位图自带底色 → 直接铺满。
  */
 export function SiteApp({ site, href, onOpen }: SiteAppProps) {

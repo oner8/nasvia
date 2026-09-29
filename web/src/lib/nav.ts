@@ -7,8 +7,8 @@
  * 1. 类名必须是**完整字面量**（不做拼装），否则 Tailwind 扫描不到这些类。
  * 2. 侧栏与顶部（已取消的旧形态）共用同一套 `NAV_BAR_CLASS` / `NAV_ITEM_CLASS` / `NAV_INDICATOR_CLASS`
  *    —— 单一来源，只有方向与定位不同。
- * 3. 侧栏与内容**同处一行**（不是固定在窗口边缘），所以不论窗口多宽，侧栏都紧贴内容；
- *    手机与平板（< lg = 1024px）整块隐藏。
+ * 3. 主内容固定在对称三列网格的中间列，侧栏使用两侧留白，不参与主内容宽度计算；
+ *    小于 xl（1280px）时整块隐藏。
  */
 
 export type NavPosition = 'left' | 'right'
@@ -108,25 +108,19 @@ export const NAV_INDICATOR_ID = 'category-tab-indicator'
 
 /* ---------------------------------------------------------------- 侧栏与内容 */
 
-/**
- * 行容器：侧栏与内容在同一行、整体居中。
- * 宽度 = 侧栏 + 间距 + 内容(60rem) + 内边距(4rem)：仅图标 68.5rem；显示名称 75rem。
- * 这样窗口再宽，侧栏也只紧贴内容，而不会漂到窗口边缘。
- */
-export const NAV_ROW_BASE_CLASS = 'mx-auto flex w-full justify-center gap-4 px-4 sm:px-6 lg:px-8'
-export const NAV_ROW_MAX_ICON_CLASS = 'max-w-[68.5rem]'
-export const NAV_ROW_MAX_TEXT_CLASS = 'max-w-[75rem]'
-/** 侧栏在右时把整行反向（DOM 顺序仍是 [侧栏, 内容]）。 */
-export const NAV_ROW_RIGHT_CLASS = 'flex-row-reverse'
+/** 对称三列：两侧均分留白，中间主内容最大 60rem，侧栏不会改变中间列的位置或宽度。 */
+export const NAV_GRID_CLASS =
+  'grid min-h-dvh w-full grid-cols-[minmax(0,1fr)_min(60rem,100%)_minmax(0,1fr)] px-4 sm:px-6 lg:px-8'
 
 /**
  * 侧栏所在列：与视口等高并吸顶，内部垂直居中
  * → 侧栏始终停在视口的竖直中线上（滚动时也是）。
  *
- * **手机与平板（< lg = 1024px）整块隐藏**（`hidden … lg:flex`）：小屏上分类导航会挤占本就不多的宽度，
- * 此时内容占满整行；桌面（≥1024px）才显示导航。
+ * **小于 xl = 1280px 时整块隐藏**（`hidden … xl:flex`），避免侧栏覆盖主内容。
  */
-export const NAV_RAIL_COLUMN_CLASS = 'sticky top-0 hidden h-dvh shrink-0 items-center lg:flex'
+export const NAV_RAIL_COLUMN_CLASS = 'sticky top-0 row-start-1 hidden h-dvh min-w-0 self-start items-center xl:flex'
+export const NAV_RAIL_LEFT_CLASS = 'col-start-1 justify-end pr-4'
+export const NAV_RAIL_RIGHT_CLASS = 'col-start-3 justify-start pl-4'
 
 /**
  * 侧栏宽度：
@@ -137,11 +131,11 @@ export const NAV_RAIL_COLUMN_CLASS = 'sticky top-0 hidden h-dvh shrink-0 items-c
 export const NAV_RAIL_WIDTH_ICON_CLASS = 'w-14'
 export const NAV_RAIL_WIDTH_TEXT_CLASS = 'w-max max-w-[11rem]'
 
-/** 侧栏标签栏自身：铺满所在列；分类很多时栏内滚动。 */
-export const NAV_RAIL_CLASS = 'w-full max-h-[85dvh] overflow-y-auto'
+/** 侧栏标签栏自身：分类很多时栏内滚动。 */
+export const NAV_RAIL_CLASS = 'max-h-[85dvh] overflow-y-auto'
 
-/** 内容列：宽度与「居中内容」一致（60rem），小屏时占满整行。 */
-export const NAV_CONTENT_CLASS = 'flex min-h-dvh min-w-0 max-w-[60rem] flex-1 flex-col pt-8'
+/** 内容固定在中间列；左右侧栏切换或隐藏时，位置和宽度不变。 */
+export const NAV_CONTENT_CLASS = 'col-start-2 row-start-1 flex min-h-dvh min-w-0 w-full flex-col pt-8'
 
 function join(...parts: Array<string | false | undefined>): string {
   return parts.filter((part) => Boolean(part)).join(' ')
@@ -165,26 +159,9 @@ export function navItemClass(style: NavStyle, active: boolean): string {
   )
 }
 
-/** 隐藏分类导航时的行宽：内容 60rem + 内边距 4rem（内容仍然居中）。 */
-export const NAV_ROW_HIDDEN_CLASS = 'max-w-[64rem]'
-
-/** 行容器类名（侧栏 + 内容一起居中整行；隐藏导航时不预留侧栏宽度）。 */
-export function navRowClass(
-  position: NavPosition,
-  style: NavStyle,
-  visible: NavVisible = DEFAULT_NAV_VISIBLE,
-): string {
-  if (visible === 'hide') return join(NAV_ROW_BASE_CLASS, NAV_ROW_HIDDEN_CLASS)
-  return join(
-    NAV_ROW_BASE_CLASS,
-    style === 'icon' ? NAV_ROW_MAX_ICON_CLASS : NAV_ROW_MAX_TEXT_CLASS,
-    position === 'right' && NAV_ROW_RIGHT_CLASS,
-  )
-}
-
-/** 侧栏所在列类名（宽度由样式决定）。 */
-export function navRailColumnClass(style: NavStyle): string {
-  return join(NAV_RAIL_COLUMN_CLASS, style === 'icon' ? NAV_RAIL_WIDTH_ICON_CLASS : NAV_RAIL_WIDTH_TEXT_CLASS)
+/** 侧栏放入主内容左侧或右侧的留白，并从留白中留出 1rem 间距。 */
+export function navRailColumnClass(position: NavPosition): string {
+  return join(NAV_RAIL_COLUMN_CLASS, position === 'right' ? NAV_RAIL_RIGHT_CLASS : NAV_RAIL_LEFT_CLASS)
 }
 
 /**
@@ -192,5 +169,10 @@ export function navRailColumnClass(style: NavStyle): string {
  * 仅图标模式下让图标格在列内居中。
  */
 export function navRailClass(style: NavStyle): string {
-  return join(NAV_RAIL_CLASS, NAV_BAR_CLASS, 'flex-col gap-1', style === 'icon' && 'items-center')
+  return join(
+    NAV_RAIL_CLASS,
+    NAV_BAR_CLASS,
+    'flex-col gap-1',
+    style === 'icon' ? join(NAV_RAIL_WIDTH_ICON_CLASS, 'items-center') : NAV_RAIL_WIDTH_TEXT_CLASS,
+  )
 }

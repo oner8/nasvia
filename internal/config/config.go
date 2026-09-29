@@ -14,7 +14,7 @@ import (
 )
 
 // Version 构建版本，可由 -ldflags -X 覆盖。
-var Version = "1.0.0"
+var Version = "1.1.0"
 
 // LegacyDefaultFaviconSources 旧版默认来源：仅在库里正好等于它时做一次性升级（加 nasicon 兜底来源）。
 const LegacyDefaultFaviconSources = "hdicons,site,duckduckgo,google"

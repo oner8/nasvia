@@ -322,6 +322,32 @@ func (s *Store) Site(id uint) (*model.Site, error) {
 	return &row, nil
 }
 
+// IconStatus 是图标状态轮询所需的最小字段集合。
+type IconStatus struct {
+	ID                 uint
+	IconHash           string
+	IconState          string
+	IconSource         string
+	CategoryID         *uint
+	Visibility         string
+	CategoryVisibility string
+}
+
+// IconStatuses 只读取指定站点的图标与可见性字段，避免轮询完整站点列表。
+func (s *Store) IconStatuses(ids []uint) ([]IconStatus, error) {
+	if len(ids) == 0 {
+		return []IconStatus{}, nil
+	}
+	var rows []IconStatus
+	err := s.db.Table("sites").
+		Select("sites.id, sites.icon_hash, sites.icon_state, sites.icon_source, sites.category_id, sites.visibility, COALESCE(categories.visibility, '') AS category_visibility").
+		Joins("LEFT JOIN categories ON categories.id = sites.category_id").
+		Where("sites.id IN ?", ids).
+		Order("sites.id ASC").
+		Scan(&rows).Error
+	return rows, err
+}
+
 // CreateSite 新建站点，自动置于末尾。
 func (s *Store) CreateSite(site *model.Site) error {
 	var maxSort *int

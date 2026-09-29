@@ -1,18 +1,18 @@
 /**
- * 首页视图模式：磁贴卡片（tile）/ 应用图标网格（app）。
+ * 首页视图模式：应用图标（app）/ 卡片（tile）/ 紧凑列表（list）。
  *
  * 纯前端个人偏好：**默认应用图标**（未设置过的访客首屏就是应用图标视图），
- * 选择存在浏览器 localStorage，已显式选过磁贴的浏览器保持自己的选择；
+ * 选择存在浏览器 localStorage，已显式选过卡片的浏览器保持自己的选择；
  * 非法值一律回退默认。这里只放不依赖 React 的纯逻辑，便于 node:test 直接覆盖。
  */
 
-export type ViewMode = 'tile' | 'app'
+export type ViewMode = 'tile' | 'app' | 'list'
 
 /**
- * 菜单里的顺序即此数组顺序：应用图标排在磁贴前面
+ * 菜单里的顺序即此数组顺序：应用图标 → 卡片 → 紧凑列表
  * （默认选中项也是第一个，与「默认应用图标」保持一致）。
  */
-export const VIEW_MODES: readonly ViewMode[] = ['app', 'tile']
+export const VIEW_MODES: readonly ViewMode[] = ['app', 'tile', 'list']
 
 export const DEFAULT_VIEW_MODE: ViewMode = 'app'
 
@@ -21,22 +21,24 @@ export const VIEW_STORAGE_KEY = 'nasvia-view-mode'
 
 /** 视图展示名。 */
 export const VIEW_NAME: Record<ViewMode, string> = {
-  tile: '磁贴',
+  tile: '卡片',
   app: '应用图标',
+  list: '紧凑列表',
 }
 
 /**
  * 网格容器类名。必须是完整字符串字面量（不做拼接），否则 Tailwind 扫描不到这些类。
- * 两个视图的列数都在这里：磁贴 手机 2 / 平板 3 / 桌面 4；应用图标 手机 4 / 平板 5、6 / 桌面 10。
+ * 三种视图的列数都在这里：卡片手机 2 / 平板 3 / 桌面 4；应用图标手机 4 / 桌面 10；列表手机 1 / 桌面 2。
  */
 export const GRID_CLASS: Record<ViewMode, string> = {
   tile: 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4',
   app: 'grid grid-cols-4 gap-x-2 gap-y-5 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-10',
+  list: 'grid grid-cols-1 gap-2 lg:grid-cols-2',
 }
 
 /** 把任意存储值规整为合法视图模式。 */
 export function normalizeViewMode(value: string | null | undefined): ViewMode {
-  return value === 'tile' || value === 'app' ? value : DEFAULT_VIEW_MODE
+  return value === 'tile' || value === 'app' || value === 'list' ? value : DEFAULT_VIEW_MODE
 }
 
 /**
@@ -65,7 +67,7 @@ export function writeStoredViewMode(
   }
 }
 
-/** 在两种视图之间切换。 */
+/** 按菜单顺序循环切换视图。 */
 export function nextViewMode(mode: ViewMode): ViewMode {
-  return mode === 'app' ? 'tile' : 'app'
+  return VIEW_MODES[(VIEW_MODES.indexOf(mode) + 1) % VIEW_MODES.length]
 }

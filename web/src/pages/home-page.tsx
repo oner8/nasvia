@@ -17,15 +17,15 @@ import { useCategories, useConfig, useSites } from '../hooks/use-api'
 import { useNetworkMode } from '../hooks/use-network-mode'
 import { useViewMode } from '../hooks/use-view-mode'
 import {
+  NAV_CONTENT_CLASS,
+  NAV_GRID_CLASS,
   navRailClass,
   navRailColumnClass,
-  navRowClass,
   normalizeNavPosition,
   normalizeNavStyle,
   normalizeNavVisible,
 } from '../lib/nav'
 import type { Site } from '../lib/types'
-import { cn } from '../lib/utils'
 import { visibleCategories, visibleSites } from '../lib/visibility'
 import { useUI } from '../stores/ui'
 
@@ -101,7 +101,7 @@ export function HomePage() {
     return sections
   }, [activeTab, shown, categories])
 
-  /** 两种视图共用同一份地址解析（内网命中则用内网地址）。 */
+  /** 三种视图共用同一份地址解析（内网命中则用内网地址）。 */
   const resolveHref = (site: Site) => network.pick(site)
 
   const showRail = tabs.length > 1 && navVisible === 'show'
@@ -137,13 +137,13 @@ export function HomePage() {
   }
 
   return (
-    <div className={cn('mx-auto flex w-full', navRowClass(navPosition, navStyle, navVisible))}>
+    <div className={NAV_GRID_CLASS}>
       {/*
-        分类导航（竖向侧栏）与内容同处一行（整行一起居中）→ 不论窗口多宽，侧栏都紧贴内容；
-        手机与平板（< lg）整块隐藏，此时内容占满整行。
+        中间列始终是 60rem 主内容；分类导航使用左右留白，不参与主内容宽度计算。
+        小于 xl（1280px）时隐藏侧栏，避免覆盖主内容。
       */}
       {showRail ? (
-        <div className={navRailColumnClass(navStyle)}>
+        <div className={navRailColumnClass(navPosition)}>
           <CategoryTabs
             tabs={tabs}
             active={activeTab}
@@ -155,7 +155,7 @@ export function HomePage() {
         </div>
       ) : null}
 
-      <div className="flex min-h-dvh min-w-0 max-w-[60rem] flex-1 flex-col pt-8">
+      <div className={NAV_CONTENT_CLASS}>
         <header className="mb-8 flex items-center gap-2.5">
           <BrandLogo title={config?.site_title} />
         </header>
@@ -181,9 +181,6 @@ export function HomePage() {
               <div className="mx-0.5 h-4 w-px bg-[var(--color-border)]" aria-hidden />
               <NetworkBadge
                 mode={network.mode}
-                reason={network.reason}
-                host={network.host}
-                clientIP={network.clientIP}
               />
               {/* 未登录：登录图标；已登录：齿轮（后台管理） */}
               <Tooltip side="bottom" content={authenticated ? '后台管理' : '登录'}>
@@ -202,6 +199,15 @@ export function HomePage() {
 
           {/* 联网搜索：常驻搜索框（原来顶部导航栏那条位置），回车在新标签页打开所选引擎的结果页 */}
           <WebSearch className="mb-8" />
+
+          {sitesQuery.iconPollingTimedOut ? (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-[var(--color-muted)]/50 px-3 py-2 text-xs">
+              <span>后台仍在处理图标，自动检查已暂停。</span>
+              <Button size="sm" variant="outline" onClick={sitesQuery.retryIconPolling}>
+                刷新图标状态
+              </Button>
+            </div>
+          ) : null}
 
           {sitesQuery.isLoading || categoriesQuery.isLoading ? (
             <SiteGridSkeleton view={view} />

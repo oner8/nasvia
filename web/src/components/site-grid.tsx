@@ -12,18 +12,21 @@ export interface SiteGridProps {
 }
 
 /**
- * 站点网格：按视图模式选择条目样式（磁贴卡片 / 应用图标），列数类名来自 GRID_CLASS。
+ * 站点网格：按视图模式选择条目样式（应用图标 / 卡片 / 紧凑列表），列数类名来自 GRID_CLASS。
  * 空列表渲染 null，交由调用方决定空状态。
  */
 export function SiteGrid({ sites, resolveHref, view, onOpen }: SiteGridProps) {
   if (sites.length === 0) return null
-  const Item = view === 'app' ? SiteApp : SiteCard
-
   return (
     <div className={GRID_CLASS[view]}>
-      {sites.map((site) => (
-        <Item key={site.id} site={site} href={resolveHref(site)} onOpen={onOpen} />
-      ))}
+      {sites.map((site) => {
+        const props = { site, href: resolveHref(site), onOpen }
+        return view === 'app' ? (
+          <SiteApp key={site.id} {...props} />
+        ) : (
+          <SiteCard key={site.id} {...props} compact={view === 'list'} />
+        )
+      })}
     </div>
   )
 }
@@ -38,6 +41,11 @@ export function SiteGridSkeleton({ view, count = 6 }: { view: ViewMode; count?: 
             <span className="aspect-square w-[70%] rounded-[22%] bg-[var(--color-muted)]" />
             <span className="h-3 w-3/5 rounded-full bg-[var(--color-muted)]" />
           </div>
+        ) : view === 'list' ? (
+          <div
+            key={index}
+            className="h-11 animate-pulse-soft rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40"
+          />
         ) : (
           <div
             key={index}

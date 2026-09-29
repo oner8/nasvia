@@ -27,6 +27,7 @@ test('默认视图是应用图标，非法值一律回退', () => {
   assert.equal(DEFAULT_VIEW_MODE, 'app')
   assert.equal(normalizeViewMode('app'), 'app')
   assert.equal(normalizeViewMode('tile'), 'tile')
+  assert.equal(normalizeViewMode('list'), 'list')
   assert.equal(normalizeViewMode('APP'), 'app')
   assert.equal(normalizeViewMode('grid'), 'app')
   assert.equal(normalizeViewMode(''), 'app')
@@ -38,8 +39,9 @@ test('读取存储：缺省/非法/不可用时返回默认，合法值原样返
   assert.equal(readStoredViewMode(undefined), 'app')
   assert.equal(readStoredViewMode(memoryStorage()), 'app')
   assert.equal(readStoredViewMode(memoryStorage({ [VIEW_STORAGE_KEY]: 'app' })), 'app')
-  // 已显式选过磁贴的浏览器保持自己的选择
+  // 已显式选过卡片的浏览器保持自己的选择
   assert.equal(readStoredViewMode(memoryStorage({ [VIEW_STORAGE_KEY]: 'tile' })), 'tile')
+  assert.equal(readStoredViewMode(memoryStorage({ [VIEW_STORAGE_KEY]: 'list' })), 'list')
   assert.equal(readStoredViewMode(memoryStorage({ [VIEW_STORAGE_KEY]: 'nope' })), 'app')
 
   const throwing = {
@@ -56,6 +58,8 @@ test('写入存储：写入规整后的值，存储不可用不抛错', () => {
   assert.deepEqual(storage.dump(), { [VIEW_STORAGE_KEY]: 'app' })
   writeStoredViewMode(storage, 'tile')
   assert.deepEqual(storage.dump(), { [VIEW_STORAGE_KEY]: 'tile' })
+  writeStoredViewMode(storage, 'list')
+  assert.deepEqual(storage.dump(), { [VIEW_STORAGE_KEY]: 'list' })
   writeStoredViewMode(undefined, 'app')
 
   const throwing = {
@@ -66,25 +70,27 @@ test('写入存储：写入规整后的值，存储不可用不抛错', () => {
   assert.doesNotThrow(() => writeStoredViewMode(throwing, 'app'))
 })
 
-test('切换：磁贴 ⇄ 应用 双向、可逆', () => {
-  assert.equal(nextViewMode('tile'), 'app')
+test('切换：应用 → 卡片 → 紧凑列表循环', () => {
   assert.equal(nextViewMode('app'), 'tile')
-  assert.equal(nextViewMode(nextViewMode('tile')), 'tile')
+  assert.equal(nextViewMode('tile'), 'list')
+  assert.equal(nextViewMode('list'), 'app')
 })
 
-test('两种视图的网格类名齐备且互不相同（含合法 Tailwind 字面量）', () => {
+test('三种视图的网格类名齐备且互不相同（含合法 Tailwind 字面量）', () => {
   for (const mode of VIEW_MODES) {
     const value = GRID_CLASS[mode]
     assert.ok(value.trim().length > 0, `${mode} 网格类名不应为空`)
     assert.ok(value.startsWith('grid '), `${mode} 应以 grid 开头`)
   }
   assert.notEqual(GRID_CLASS.tile, GRID_CLASS.app)
+  assert.notEqual(GRID_CLASS.list, GRID_CLASS.tile)
   assert.ok(GRID_CLASS.tile.includes('grid-cols-2') && GRID_CLASS.tile.includes('lg:grid-cols-4'))
   assert.ok(GRID_CLASS.app.includes('grid-cols-4') && GRID_CLASS.app.includes('lg:grid-cols-10'))
+  assert.ok(GRID_CLASS.list.includes('grid-cols-1') && GRID_CLASS.list.includes('lg:grid-cols-2'))
 })
 
-test('展示名两种视图都非空，且应用图标排在菜单前面', () => {
-  assert.deepEqual([...VIEW_MODES], ['app', 'tile'], '菜单顺序：应用图标在前')
+test('展示名三种视图都非空，且菜单顺序固定', () => {
+  assert.deepEqual([...VIEW_MODES], ['app', 'tile', 'list'])
   assert.equal(VIEW_MODES[0], DEFAULT_VIEW_MODE, '默认视图就是菜单第一项')
   for (const mode of VIEW_MODES) {
     assert.ok(VIEW_NAME[mode].length > 0)

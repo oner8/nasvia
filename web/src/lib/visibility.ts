@@ -54,7 +54,7 @@ export function visibleSites(sites: Site[], categories: CategoryView[], authenti
   return sites.filter((site) => isSiteVisible(site, map, false))
 }
 
-/** 过滤出当前身份可见的分类，并重算计数（只统计可见站点）。 */
+/** 过滤出当前身份有可见站点的分类，并重算计数（空分类不进入首页导航）。 */
 export function visibleCategories(
   sites: Site[],
   categories: CategoryView[],
@@ -69,4 +69,5 @@ export function visibleCategories(
   return categories
     .filter((category) => authenticated || category.visibility === 'public')
     .map((category) => ({ ...category, site_count: counts.get(category.id) ?? 0 }))
+    .filter((category) => category.site_count > 0)
 }

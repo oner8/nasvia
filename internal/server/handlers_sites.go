@@ -291,7 +291,11 @@ func (s *Server) handleCreateSite(c *gin.Context) {
 		fail(c, http.StatusInternalServerError, "store_error", "保存站点失败")
 		return
 	}
-	s.triggerIconFetch(site)
+	if s.triggerIconFetch(site) == iconUnavailable {
+		if refreshed, err := s.store.Site(site.ID); err == nil {
+			site = *refreshed
+		}
+	}
 	ok(c, gin.H{"site": s.withIconDebug(toSiteDTO(site, nil, true), site)})
 }
 
@@ -414,7 +418,11 @@ func (s *Server) handleUpdateSite(c *gin.Context) {
 		return
 	}
 	if addressChanged || iconChanged {
-		s.triggerIconFetch(*updated)
+		if s.triggerIconFetch(*updated) == iconUnavailable {
+			if refreshed, err := s.store.Site(updated.ID); err == nil {
+				updated = refreshed
+			}
+		}
 	}
 	cats, _ := s.store.Categories()
 	ok(c, gin.H{"site": s.withIconDebug(toSiteDTO(*updated, categoryOf(*updated, categoryIndex(cats)), true), *updated)})
@@ -657,12 +665,19 @@ func (s *Server) handleRefetchIcon(c *gin.Context) {
 		fail(c, http.StatusNotFound, "not_found", "站点不存在")
 		return
 	}
-	if err := s.store.MarkIconPending(id); err != nil {
+	result, err := s.queueIconFetch(*site, true)
+	if err != nil {
 		fail(c, http.StatusInternalServerError, "store_error", "重置图标状态失败")
 		return
 	}
-	s.triggerIconFetch(*site)
-	ok(c, gin.H{"queued": true})
+	switch result {
+	case iconAlreadyQueued:
+		fail(c, http.StatusConflict, "icon_fetch_in_progress", "该站点的图标正在抓取")
+	case iconUnavailable:
+		fail(c, http.StatusBadRequest, "icon_fetch_unavailable", "没有可抓取的地址，或所有图标来源均已关闭")
+	default:
+		ok(c, gin.H{"queued": true})
+	}
 }
 
 func valueOr(ptr *string, fallback string) string {

@@ -54,7 +54,7 @@ export function CategoryTabs({
       role="tablist"
       aria-label="服务分类"
       aria-orientation="vertical"
-      className={cn(navBarClass(), 'w-full', className)}
+      className={cn(navBarClass(), className)}
     >
       {tabs.map((tab) => {
         const isActive = tab.id === active

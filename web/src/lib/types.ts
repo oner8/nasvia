@@ -104,6 +104,17 @@ export interface SiteListResponse {
   authenticated: boolean
 }
 
+export interface IconStatus {
+  id: number
+  icon: string
+  icon_state: Site['icon_state']
+  icon_source: Site['icon_source']
+}
+
+export interface IconStatusResponse {
+  items: IconStatus[]
+}
+
 export interface CategoryListResponse {
   items: CategoryView[]
   total: number
