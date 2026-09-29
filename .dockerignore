@@ -1,0 +1,15 @@
+# 构建上下文瘦身：镜像内会重新安装依赖并构建前端
+.git
+.gitignore
+.pi
+.claude
+web/node_modules
+web/dist
+bin
+data
+*.log
+.env
+.env.local
+Dockerfile
+docker-compose.yml
+README.md

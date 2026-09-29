@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN" suppressHydrationWarning>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="NASVIA — 轻量快速的 NAS 个人服务导航页" />
+    <!--
+      站点图标：单独一个 SVG 文件，造型与首页徽章 BrandMark 完全一致，
+      两处几何参数由 web/src/lib/brand.test.ts 守卫生效。
+    -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <title>NASVIA</title>
+    <script>
+      // 首屏主题预置：在样式计算前根据系统/本地偏好设置 .dark，避免闪白
+      (function () {
+        try {
+          var stored = localStorage.getItem('nasvia-theme');
+          var mode = stored && stored !== 'system' ? stored : null;
+          if (!mode) {
+            mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.classList.toggle('dark', mode === 'dark');
+          document.documentElement.style.colorScheme = mode;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

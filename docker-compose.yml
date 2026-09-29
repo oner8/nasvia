@@ -1,0 +1,44 @@
+services:
+  nasvia:
+    build:
+      context: .
+      args:
+        # 国内网络构建时在 .env 里改成镜像源：GOPROXY=https://goproxy.cn,direct / NPM_REGISTRY=https://registry.npmmirror.com
+        GOPROXY: "${GOPROXY:-https://proxy.golang.org,direct}"
+        NPM_REGISTRY: "${NPM_REGISTRY:-https://registry.npmjs.org}"
+    image: nasvia:latest
+    container_name: nasvia
+    restart: unless-stopped
+    ports:
+      # 左侧为 NAS 上对外暴露的端口，右侧为容器内监听端口
+      - "3720:3720"
+    environment:
+      NASVIA_PORT: "3720"
+      NASVIA_BIND: "0.0.0.0"
+      NASVIA_DATA_DIR: "/data"
+      # 前台模式：public（任何人可浏览公开服务）或 private（首页也需登录）
+      NASVIA_AUTH_MODE: "${NASVIA_AUTH_MODE:-public}"
+      # 后台密码，强烈建议设置；未设置时后台接口会拒绝访问
+      NASVIA_PASSWORD: "${NASVIA_PASSWORD:-}"
+      # 首次初始化时写入的内网网段，可在后台「设置」中修改
+      # 留空即用内置常用网段（192.168.0.0/16、10.0.0.0/8、*.lan、*.local、home.arpa）
+      NASVIA_LAN_CIDRS: "${NASVIA_LAN_CIDRS:-}"
+      # 家庭公网出口（DDNS 域名 / auto / 公网 IP）：经反代用域名访问时据此区分在家 / 在外
+      NASVIA_HOME_EGRESS: "${NASVIA_HOME_EGRESS:-}"
+      TZ: "${TZ:-Asia/Shanghai}"
+      # 服务运行身份：启动时会把 /data 属主自动修正为 PUID:PGID（绑定宿主目录时设成宿主用户，群晖常见 1026/100）
+      PUID: "${PUID:-10001}"
+      PGID: "${PGID:-10001}"
+    volumes:
+      # 数据全部保存在这个卷里（SQLite 单文件 + 图标缓存），备份迁移只需复制它
+      # 也可以绑定宿主目录，例如群晖 /volume1/docker/nasvia-data:/data、威联通 /share/Container/nasvia-data:/data
+      - nasvia-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3720/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  nasvia-data:

@@ -1,0 +1,22 @@
+# 依赖与构建产物
+web/node_modules/
+web/dist/*
+bin/
+data/
+
+# go:embed 需要 web/dist 存在才能编译（前端产物本身仍不入库）
+!web/dist/.gitkeep
+
+# 环境与本地文件
+.env
+.env.local
+*.log
+
+# PI-Desktop 工作区产物（规划与调试文件，不属于交付物）
+.pi/
+.claude/
+
+# 编辑器
+.DS_Store
+.idea/
+.vscode/

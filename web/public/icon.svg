@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <!--
+    NASVIA 站点图标（浏览器标签页用）。
+
+    注意：XML 注释里不能出现连续两个连字符，所以下面提到 CSS 变量时一律不写前缀横线。
+
+    造型必须与页面徽章 web/src/components/brand-logo.tsx 里的 <BrandMark> 完全一致：
+       viewBox 0 0 40 40 / rect rx=11 / path d=M12.5 29.5V10.5L27.5 29.5V10.5 /
+       N 笔画 3.6 / 中点节点 r=2.5 描边 1.3
+
+    颜色必须等于主题令牌 web/src/styles.css 里 foreground / background 的取值
+    （页面徽章用 CSS 变量，图标读不到变量，只能写死等价 sRGB 值）：
+       浅色：底 oklch(0.145 0 0) = #0a0a0a、字形 oklch(1 0 0) = #ffffff
+       深色：底 oklch(0.985 0 0) = #fafafa、字形 oklch(0.145 0 0) = #0a0a0a
+    下面 style 块只做「深色覆盖」；浏览器若不支持图标内 CSS，会退化成浅色那套（仍与页面浅色徽章一致）。
+
+    以上几何与颜色都由 web/src/lib/brand.test.ts 守卫，改这里请同步改组件 / 主题令牌，反之亦然。
+  -->
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .badge {
+        fill: #fafafa;
+      }
+      .glyph {
+        stroke: #0a0a0a;
+      }
+    }
+  </style>
+  <rect class="badge" width="40" height="40" rx="11" fill="#0a0a0a" />
+  <path
+    class="glyph"
+    d="M12.5 29.5V10.5L27.5 29.5V10.5"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="3.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle class="badge" cx="20" cy="20" r="2.5" fill="#0a0a0a" stroke="#ffffff" stroke-width="1.3" />
+</svg>

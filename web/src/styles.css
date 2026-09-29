@@ -1,0 +1,178 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 垂直居中修正（中英混排）：
+   等宽字体的下伸部分普遍偏大（本机实测 ascent 0.67em / descent 0.30em），
+   而中文的视觉盒约为 0.89em / 0.15em —— 于是文字在药丸、按钮、输入框里会整体偏上约 0.19em
+   （13.5px 字号下约 2.5px），看起来「没垂直居中」。这里只重写本地等宽字体的垂直度量
+   （不改字形、不下载字体），让行盒与中文视觉盒对齐；本地找不到这些字体时该 face 自动失效，
+   退回原字体，只影响度量、不影响可用性。 */
+@font-face {
+  font-family: 'Nasvia Mono';
+  src: local('SF Mono'), local('Cascadia Mono'), local('Consolas'), local('DejaVu Sans Mono'),
+    local('Liberation Mono'), local('Menlo'), local('Monaco'), local('Courier New');
+  ascent-override: 88%;
+  descent-override: 16%;
+  line-gap-override: 0%;
+}
+
+/* shadcn/ui 默认（neutral）配色 */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  /* 业务语义色：仅用于网络标识与状态角标 */
+  --danger: oklch(0.577 0.245 27.325);
+  --danger-foreground: oklch(0.985 0 0);
+  --success: oklch(0.62 0.15 155);
+  --info: oklch(0.58 0.16 250);
+  --shadow-soft: 0 1px 2px 0 oklch(0 0 0 / 0.04), 0 1px 3px -1px oklch(0 0 0 / 0.03);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.556 0 0);
+  --danger: oklch(0.704 0.191 22.216);
+  --danger-foreground: oklch(0.205 0 0);
+  --success: oklch(0.7 0.14 155);
+  --info: oklch(0.72 0.13 250);
+  --shadow-soft: 0 1px 2px 0 oklch(0 0 0 / 0.3), 0 1px 3px -1px oklch(0 0 0 / 0.25);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --shadow-soft: var(--shadow-soft);
+  /* 全局等宽字体：系统字体栈，不引入字体包。
+     首位的 'Nasvia Mono' 是给本地等宽字体做「垂直度量归一」的 @font-face（见文件开头），
+     只影响行盒的 ascent/descent，不改变字形。 */
+  --font-sans: 'Nasvia Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-mono: 'Nasvia Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 22%, transparent);
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  body:hover {
+    scrollbar-color: var(--color-muted) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-muted);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-muted-foreground);
+  }
+}
+
+@keyframes nasvia-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-pulse-soft {
+  animation: nasvia-pulse 2.2s ease-in-out infinite;
+}
+
+/** 转筒数字的上下淡出遮罩。 */
+@utility roll-mask {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 13%, #000 87%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 13%, #000 87%, transparent 100%);
+}
+
+@media print {
+  .no-print {
+    display: none;
+  }
+}

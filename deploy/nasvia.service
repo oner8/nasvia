@@ -1,0 +1,29 @@
+[Unit]
+Description=NASVIA 个人服务导航页
+Documentation=https://github.com/oner8/nasvia
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 建议创建独立用户：useradd --system --home /opt/nasvia --shell /usr/sbin/nologin nasvia
+User=nasvia
+Group=nasvia
+WorkingDirectory=/opt/nasvia
+# 可选：把环境变量放进该文件（NASVIA_PASSWORD / NASVIA_LAN_CIDRS / NASVIA_AUTH_MODE ...）
+EnvironmentFile=-/opt/nasvia/.env
+Environment=NASVIA_PORT=3720
+Environment=NASVIA_DATA_DIR=/opt/nasvia/data
+ExecStart=/opt/nasvia/nasvia
+Restart=on-failure
+RestartSec=3
+
+# 基础加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/nasvia/data
+
+[Install]
+WantedBy=multi-user.target
